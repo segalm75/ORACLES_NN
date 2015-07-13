@@ -1,0 +1,943 @@
+---
+title: "CloudLUTpcaana"
+author: "Michal Segal Rozenhaimer"
+date: "Monday, July 06, 2015"
+output: html_document
+---
+
+**This is a document that summarized the PCA analysis performed on the RSP simulated clouds LUT.
+(R routine to perform this analysis:runpcaana)**
+
+_read LUT and print some variable examples_
+
+```{r,echo=FALSE}
+        
+        source('~/R/oracles_polar_algorithm/analysis_functions.R')
+        print("processing NN_clouds_20150701.nc")
+
+        # filepath: ~/R/oracles_polar_algorithm//data/NN_clouds_20150701.nc
+        
+        ## readncdf
+        filename<-"~/R/oracles_polar_algorithm//data/NN_clouds_20150701.nc"
+        ncin    <-readncdf(filename)
+
+        #ncin <- open.ncdf("~/R/oracles_polar_algorithm//data/NN_clouds_20150701.nc")
+        #print(ncin)
+        filevarnames<-names(ncin$var)
+        print(" file variable names:")
+        print(filevarnames)
+
+        ## get a sample of all vars in the nc file
+        
+        for (count in 1:length(filevarnames)) 
+            {
+              
+              varname<-filevarnames[count]
+              varval <- get.var.ncdf(ncin, filevarnames[count])
+              nvar   <- dim(varval)
+              print(paste("variable ", filevarnames[count], "dim:"))
+              print(nvar)
+              print(paste("variable ", filevarnames[count], "sample data:"))
+              print(head(varval))
+            }
+
+        ## convert ncdf to data frame
+
+        datframe<-rspLUT2dataframe(ncin)
+        
+        varval <- get.var.ncdf(ncin, "ref_i")
+        dim2   <-  dim(varval)[2]
+        dim3   <-  dim(varval)[3]
+        
+        close.ncdf(ncin)
+
+```
+
+_Show some example curtain plots of simulated cloud LUT_
+
+##1. Total reflectance (I)
+
+```{r, echo=FALSE}
+
+## create melted subset
+
+## create for ref_i
+  
+  #testname   <-names(datframe)[grepl("^ref_i_lambda", names(datframe))]
+  #sub_refi_df<-melt(datframe,id.vars=c("case",filevarnames[1:6]),
+  #                     measure.vars=testname,
+  #                     variable_name="reflectance")
+
+## plot heatmap using ggplot
+
+  #ggplot(sub_refi_df, aes(x=reflectance,y=case, z= value)) + geom_tile(aes(fill= value)) + 
+  #       scale_fill_gradient(low="blue", high="gold") + 
+  #       theme(axis.text.x = element_blank(),
+  #       axis.text.y = element_blank(),
+  #       axis.ticks = element_blank()) + 
+  #       ggtitle("total reflectance (I) for all 7 bands")
+
+```
+
+_subsetting reflectance (I) by lambda (n=7) and plotting curtains_
+
+```{r, echo=FALSE}
+
+## create melted subset
+
+## create for ref_i
+
+testname   <-names(datframe)[grepl("^ref_i_lambda", names(datframe))]
+sub_refi_df<-melt(datframe,id.vars=c("case",filevarnames[1:6]),
+                       measure.vars=testname,
+                       variable_name="reflectance")
+
+## add wavelength band factor
+
+DT1 <- data.table(sub_refi_df)
+
+## define factors
+
+phrasein <-as.character()
+phraseout<-as.character()
+
+for (i in 1:dim2) {
+  
+  phrasein[i]  <- paste("^ref_i_lambda",as.character(i),sep="")
+  phraseout[i] <- paste("lambda",as.character(i),sep="")
+}
+
+## assign factor lambda_i to each reflectance (ref_i) section
+
+DT1[, lambda := ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[1], 
+                                       names(datframe)))], phraseout[1],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[2], 
+                                       names(datframe)))], phraseout[2],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[3], 
+                                       names(datframe)))], phraseout[3], 
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[4], 
+                                       names(datframe)))], phraseout[4],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[5], 
+                                       names(datframe)))], phraseout[5],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[6], 
+                                       names(datframe)))], phraseout[6], 
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[7], 
+                                       names(datframe)))], phraseout[7], NA)))))))]
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+ggplot(DT1, aes(x=reflectance,y=case, z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         scale_fill_gradient(low="blue", high="gold", limits=c(0,1)) +
+         # scale_fill_gradientn(colours=c("white","orange","red","dark red"), limits=c(-4,4))
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines")) +
+         scale_x_discrete(expand = c(0, 0)) +
+         scale_y_discrete(expand = c(0, 0)) +
+         ggtitle("Total reflectance (I) splitted by 7 bands")
+
+```
+
+_subsetting reflectance (I) by lambda (n=7) and COD_
+
+```{r, echo=FALSE}
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+sp<-ggplot(DT1, aes(x=reflectance,y=as.factor(cod), z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         #scale_fill_gradient(low="blue", high="gold", limits=c(0,1)) +
+         scale_fill_gradientn(colours=c("light blue","blue",
+                                          "light green","green",
+                                          "pink","red","orange",
+                                          "purple","gold"), limits=c(0,1)) +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0, "lines"))
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         sp + labs(title = "Total reflectance (I)", x = "VZA", y = "COD") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+         #scale_y_discrete(limit = c("1", "2.5", "5","10","20")) +
+         #scale_x_continuous(breaks = c(0,640*1,640*2,640*3,640*4,640*5,640*6,640*7),
+         #                   labels = c("0","640","640","640","640","640","640","640"))
+         
+
+# change title, and x/y labels
+# p.labs <- p + labs(title = "MAIN TITLE", x = "X-AXIS TITLE", y = "Y-AXIS TITLE")
+# p.labs
+# manipulate discrete axis labels
+# scale_x_discrete(limit = c("I1", "SI2", "SI1"),labels = c("Ione","SItwo","SIone"))
+
+```
+
+_subsetting reflectance (I) by lambda (n=7) and Reff_
+
+```{r, echo=FALSE}
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+sp<-ggplot(DT1, aes(x=reflectance,y=as.factor(sizea), z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         #scale_fill_gradient(low="blue", high="gold", limits=c(0,1)) +
+         scale_fill_gradientn(colours=c("light blue","blue",
+                                          "light green","green",
+                                          "pink","red","orange",
+                                          "purple","gold"), limits=c(0,1)) +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines"))
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         sp + labs(title = "Total reflectance (I)", x = "VZA", y = "Reff") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+```
+
+_subsetting reflectance (I) by lambda (n=7) and Azimuth angle_
+
+```{r, echo=FALSE}
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+windows()
+sp<-ggplot(DT1, aes(x=reflectance,y=as.factor(azi), z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         #scale_fill_gradient(low="blue", high="gold", limits=c(0,1)) +
+         scale_fill_gradientn(colours=c("light blue","blue",
+                                          "light green","green",
+                                          "pink","red","orange",
+                                          "purple","gold"), limits=c(0,1)) +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines"))
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         sp + labs(title = "Total reflectance (I)", x = "VZA", y = "AZ") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+```
+
+###1a. PCA on Total reflectance (I)
+
+_PCA summary_
+```{r,echo=FALSE}
+
+## extract only total reflectance variables from datframe set
+
+refivarnames <- names(datframe)[grepl("^ref_i_lambda", names(datframe))]
+
+refi.dat     <- datframe[,refivarnames]
+COD          <- as.factor(datframe$cod)
+Reff         <- as.factor(datframe$sizea)
+CTH          <- as.factor(datframe$cldtop)
+SZA          <- as.factor(round(datframe$sza))
+AZi          <- as.factor(datframe$azi)
+
+pararray     <- data.frame(Reff = Reff, CTH = CTH, COD = COD, SZA = SZA, AZi = AZi)
+
+
+## perform PCA with prcomp (on raw data)
+
+refi.pca     <- prcomp(refi.dat)
+
+## print PCA results
+
+print("summary of PCA for total (I) reflectance:")
+
+pcarefi.summary<-summary(refi.pca)
+
+pcarefi.names  <-names(pcarefi.summary)
+
+pcnumlogic     <- pcarefi.summary$importance[3,]<=0.99
+
+print("number of PC's that represent 0.99 variance:")
+
+pcarefi.summary$importance[,pcnumlogic==TRUE]
+
+#print("pca variance plot")
+#windows()
+plot(refi.pca,type = "lines",
+     main = "PC variance of total reflectance (I)")
+
+print("most important PC's sdev:")
+
+refi.pca$sdev[pcnumlogic==TRUE]
+
+sampVZA   <- 140
+sampVZAvec<- as.numeric()
+for (i in 1:dim2){sampVZAvec[i]<-sampVZA + dim3*(i-1)}
+
+print(paste("sample data rotation on PC space with VZA = ",
+            as.character(sampVZA),sep=""))
+
+refi.pca$rotation[sampVZAvec,pcnumlogic==TRUE]
+
+## predict test
+
+newset  <- rbind(head(refi.dat,2),tail(refi.dat,2))
+predset <- predict(refi.pca,newset)
+
+## perform princomp (with cov operation on data)
+## need # cases > # of variables to perform
+## refi.pca2 <- princomp(refi.dat, covmat = MASS::cov.rob(refi.dat))
+
+
+```
+
+_PCA plots_
+
+```{r,echo=FALSE}
+
+## try to visuallize PC's
+
+refi.pca.df <- data.frame(refi.pca$rotation[,pcnumlogic==TRUE])
+refi.pca.df <- cbind(refi.pca.df,vars=rownames(refi.pca.df))
+pcnames     <-names(refi.pca.df)[grepl("^PC", names(refi.pca.df))]
+sub_refi_df <-melt(refi.pca.df,id.vars=c("vars"),
+                       measure.vars=pcnames,
+                       variable_name="PC")
+
+refi.pca.DT <- data.table(sub_refi_df)
+
+## assign factor lambda_i to PC data table
+
+refi.pca.DT[, lambda := ifelse(vars %in% names(datframe)[c(grepl(phrasein[1], 
+                                       names(datframe)))], phraseout[1],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[2], 
+                                       names(datframe)))], phraseout[2],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[3], 
+                                       names(datframe)))], phraseout[3], 
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[4], 
+                                       names(datframe)))], phraseout[4],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[5], 
+                                       names(datframe)))], phraseout[5],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[6], 
+                                       names(datframe)))], phraseout[6], 
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[7], 
+                                       names(datframe)))], phraseout[7], NA)))))))]
+
+## create PC curtain plots of lambda by VZA to inspect PC structure
+
+sp<-ggplot(refi.pca.DT, aes(x=vars,y=PC, z= value)) + 
+         geom_tile(aes(fill= value)) +
+         scale_fill_gradientn(colours=c("blue","green",
+                                        "pink","red","orange","gold")) +
+         facet_grid(. ~ lambda, scales = "free", space = "free") +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines")) +
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         labs(title = "Total reflectance (I) PC loading map", x = "VZA", y = "") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+# ggplot(df, aes(time,value)) + geom_line(aes(colour = series))
+# or plot on different plots
+# ggplot(df, aes(time,value)) + geom_line() + facet_grid(series ~ .)
+
+
+## plot PC space with data
+## windows()
+## biplot(refi.pca)
+```
+
+_total reflectance by PC space_
+
+```{r,echo=FALSE}
+## create multiple biplots to explore the PC space
+
+#  empty list for storage
+gg_list <- list()
+
+# select vars to plot for
+
+varselect <- names(pararray)
+
+# loop over varselect
+
+  for(i in 1:length(varselect)) {
+      
+      # select specific variables to plot
+      
+      name   <- varselect[i]
+      dattmp <- cbind(refi.dat,pararray[,i])
+      names(dattmp)[dim(dattmp)[2]] <- varselect[i]
+      
+      # assign  ggplot to the i'th position in the list
+      
+      gg_list[[i]] <- autoplot(prcomp(refi.dat), data = dattmp, colour = name, label = TRUE)
+      
+      # print plot
+      # print(gg_list[[i]])
+      
+  }
+  
+  ## print multiple variable
+  #  multiplot(plotlist=gg_list,cols=3)
+     multiplot(gg_list[[1]],gg_list[[3]],
+               gg_list[[4]],gg_list[[5]],
+               cols=2)
+
+
+
+
+
+
+
+```
+
+##2. Polarized Reflectance (Rp = sqrt(Q^2))
+
+_subsetting Rp by lambda (n=7) and plotting curtains_
+
+```{r, echo=FALSE}
+
+## create melted subset
+
+## create for Rp
+
+testname   <-names(datframe)[grepl("^Rp_lambda", names(datframe))]
+sub_Rp_df<-melt(datframe,id.vars=c("case",filevarnames[1:6]),
+                       measure.vars=testname,
+                       variable_name="reflectance")
+
+## add wavelength band factor
+
+DT2 <- data.table(sub_Rp_df)
+
+## define factors
+
+phrasein <-as.character()
+phraseout<-as.character()
+
+for (i in 1:dim2) {
+  
+  phrasein[i]  <- paste("^Rp_lambda",as.character(i),sep="")
+  phraseout[i] <- paste("lambda",as.character(i),sep="")
+}
+
+## assign factor lambda_i to each Rp section
+
+DT2[, lambda := ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[1], 
+                                       names(datframe)))], phraseout[1],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[2], 
+                                       names(datframe)))], phraseout[2],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[3], 
+                                       names(datframe)))], phraseout[3], 
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[4], 
+                                       names(datframe)))], phraseout[4],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[5], 
+                                       names(datframe)))], phraseout[5],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[6], 
+                                       names(datframe)))], phraseout[6], 
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[7], 
+                                       names(datframe)))], phraseout[7], NA)))))))]
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+ggplot(DT2, aes(x=reflectance,y=case, z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         scale_fill_gradient(low="blue", high="gold", limits=c(0,0.1)) +
+         # scale_fill_gradientn(colours=c("white","orange","red","dark red"), limits=c(-4,4))
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines")) +
+         scale_x_discrete(expand = c(0, 0)) +
+         scale_y_discrete(expand = c(0, 0)) +
+         ggtitle("Polarized Reflectance (Rp) splitted by 7 bands")
+
+```
+
+###2a. PCA on Polarized reflectance (Rp)
+
+_PCA summary_
+```{r,echo=FALSE}
+
+## extract only total reflectance variables from datframe set
+
+refivarnames <- names(datframe)[grepl("^Rp_lambda", names(datframe))]
+
+refq.dat     <- datframe[,refivarnames]
+COD          <- as.factor(datframe$cod)
+Reff         <- as.factor(datframe$sizea)
+CTH          <- as.factor(datframe$cldtop)
+SZA          <- as.factor(round(datframe$sza))
+AZi          <- as.factor(datframe$azi)
+
+pararray     <- data.frame(Reff = Reff, CTH = CTH, COD = COD, SZA = SZA, AZi = AZi)
+
+
+## perform PCA with prcomp (on raw data)
+
+refq.pca     <- prcomp(refq.dat)
+
+## print PCA results
+
+print("summary of PCA for Polarized reflectance (Rp):")
+
+pcarefq.summary<-summary(refq.pca)
+
+pcarefq.names  <-names(pcarefq.summary)
+
+pcnumlogic     <- pcarefq.summary$importance[3,]<=0.99
+
+print("number of PC's that represent 0.99 variance:")
+
+pcarefq.summary$importance[,pcnumlogic==TRUE]
+
+#print("pca variance plot")
+#window()
+plot(refq.pca,type = "lines",
+     main = "PC variance of Polarized reflectance (Rp)")
+
+print("most important PC's sdev:")
+
+refq.pca$sdev[pcnumlogic==TRUE]
+
+sampVZA   <- 140
+sampVZAvec<- as.numeric()
+for (i in 1:dim2){sampVZAvec[i]<-sampVZA + dim3*(i-1)}
+
+print(paste("sample data rotation on PC space with VZA = ",
+            as.character(sampVZA),sep=""))
+
+refq.pca$rotation[sampVZAvec,pcnumlogic==TRUE]
+
+## predict test
+
+newset     <- rbind(head(refq.dat,2),tail(refq.dat,2))
+predset_Rp <- predict(refq.pca,newset)
+
+## perform princomp (with cov operation on data)
+## need # cases > # of variables to perform
+## refi.pca2 <- princomp(refi.dat, covmat = MASS::cov.rob(refi.dat))
+
+
+```
+
+_PCA plots_
+
+```{r,echo=FALSE}
+
+## try to visuallize PC's
+
+refq.pca.df <- data.frame(refq.pca$rotation[,pcnumlogic==TRUE])
+refq.pca.df <- cbind(refq.pca.df,vars=rownames(refq.pca.df))
+pcnames     <-names(refq.pca.df)[grepl("^PC", names(refq.pca.df))]
+sub_refq_df <-melt(refq.pca.df,id.vars=c("vars"),
+                       measure.vars=pcnames,
+                       variable_name="PC")
+
+refq.pca.DT <- data.table(sub_refq_df)
+
+## assign factor lambda_i to PC data table
+
+refq.pca.DT[, lambda := ifelse(vars %in% names(datframe)[c(grepl(phrasein[1], 
+                                       names(datframe)))], phraseout[1],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[2], 
+                                       names(datframe)))], phraseout[2],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[3], 
+                                       names(datframe)))], phraseout[3], 
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[4], 
+                                       names(datframe)))], phraseout[4],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[5], 
+                                       names(datframe)))], phraseout[5],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[6], 
+                                       names(datframe)))], phraseout[6], 
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[7], 
+                                       names(datframe)))], phraseout[7], NA)))))))]
+
+## create PC curtain plots of lambda by VZA to inspect PC structure
+
+sp<-ggplot(refq.pca.DT, aes(x=vars,y=PC, z= value)) + 
+         geom_tile(aes(fill= value)) +
+         scale_fill_gradientn(colours=c("blue","green",
+                                        "pink","red","orange","gold")) +
+         facet_grid(. ~ lambda, scales = "free", space = "free") +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines")) +
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         labs(title = "Polarized reflectance (Rp) PC loading map", x = "VZA", y = "") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+# ggplot(df, aes(time,value)) + geom_line(aes(colour = series))
+# or plot on different plots
+# ggplot(df, aes(time,value)) + geom_line() + facet_grid(series ~ .)
+
+
+## plot PC space with data
+## windows()
+## biplot(refi.pca)
+```
+
+_polarized reflectance by PC space_
+
+```{r,echo=FALSE}
+## create multiple biplots to explore the PC space
+
+#  empty list for storage
+gg_list <- list()
+
+# select vars to plot for
+
+varselect <- names(pararray)
+
+# loop over varselect
+
+  for(i in 1:length(varselect)) {
+      
+      # select specific variables to plot
+      
+      name   <- varselect[i]
+      dattmp <- cbind(refq.dat,pararray[,i])
+      names(dattmp)[dim(dattmp)[2]] <- varselect[i]
+      
+      # assign  ggplot to the i'th position in the list
+      
+      gg_list[[i]] <- autoplot(prcomp(refq.dat), data = dattmp, colour = name, label = TRUE)
+      
+      # print plot
+      # print(gg_list[[i]])
+      
+  }
+  
+  ## print multiple variable
+  #  multiplot(plotlist=gg_list,cols=3)
+     multiplot(gg_list[[1]],gg_list[[3]],
+               gg_list[[4]],gg_list[[5]],
+               cols=2)
+
+
+
+
+
+
+
+```
+
+##3. Degree of Linear Polarization (DoLP = sqrt(Q^2))/I)
+
+_subsetting DoLP by lambda (n=7) and plotting curtains_
+
+```{r, echo=FALSE}
+
+## create melted subset
+
+## create for DoLP
+
+testname   <-names(datframe)[grepl("^DoLP_lambda", names(datframe))]
+sub_DoLP_df<-melt(datframe,id.vars=c("case",filevarnames[1:6]),
+                       measure.vars=testname,
+                       variable_name="reflectance")
+
+## add wavelength band factor
+
+DT3 <- data.table(sub_DoLP_df)
+
+## define factors
+
+phrasein <-as.character()
+phraseout<-as.character()
+
+for (i in 1:dim2) {
+  
+  phrasein[i]  <- paste("^DoLP_lambda",as.character(i),sep="")
+  phraseout[i] <- paste("lambda",as.character(i),sep="")
+}
+
+## assign factor lambda_i to each DoLP section
+
+DT3[, lambda := ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[1], 
+                                       names(datframe)))], phraseout[1],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[2], 
+                                       names(datframe)))], phraseout[2],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[3], 
+                                       names(datframe)))], phraseout[3], 
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[4], 
+                                       names(datframe)))], phraseout[4],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[5], 
+                                       names(datframe)))], phraseout[5],
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[6], 
+                                       names(datframe)))], phraseout[6], 
+               ifelse(reflectance %in% names(datframe)[c(grepl(phrasein[7], 
+                                       names(datframe)))], phraseout[7], NA)))))))]
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+ggplot(DT3, aes(x=reflectance,y=case, z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         scale_fill_gradient(low="blue", high="gold", limits=c(0,0.5)) +
+         # scale_fill_gradientn(colours=c("white","orange","red","dark red"), limits=c(-4,4))
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines")) +
+         scale_x_discrete(expand = c(0, 0)) +
+         scale_y_discrete(expand = c(0, 0)) +
+         ggtitle("DoLP splitted by 7 bands")
+
+```
+_subsetting DoLP by lambda (n=7) and COD_
+
+```{r, echo=FALSE}
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+sp<-ggplot(DT3, aes(x=reflectance,y=as.factor(cod), z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         #scale_fill_gradient(low="blue", high="gold", limits=c(0,1)) +
+         scale_fill_gradientn(colours=c("light blue","blue",
+                                          "light green","green",
+                                          "pink","red","orange",
+                                          "purple","gold"), limits=c(0,0.5)) +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines"))
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         sp + labs(title = "DoLP", x = "VZA", y = "COD") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+```
+
+_subsetting DoLP by lambda (n=7) and Reff_
+
+```{r, echo=FALSE}
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+sp<-ggplot(DT3, aes(x=reflectance,y=as.factor(sizea), z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         #scale_fill_gradient(low="blue", high="gold", limits=c(0,1)) +
+         scale_fill_gradientn(colours=c("light blue","blue",
+                                          "light green","green",
+                                          "pink","red","orange",
+                                          "purple","gold"), limits=c(0,0.5)) +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines"))
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         sp + labs(title = "DoLP", x = "VZA", y = "Reff") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+```
+
+_subsetting DoLP by lambda (n=7) and Azimuth angle_
+
+```{r, echo=FALSE}
+
+# all wavelength carpet plot for reflectance variables/split to 7 bands
+
+sp<-ggplot(DT3, aes(x=reflectance,y=as.factor(azi), z= value)) + 
+         geom_tile(aes(fill= value)) +
+         facet_grid(.~ lambda, scales = "free", space = "free") +
+         #scale_fill_gradient(low="blue", high="gold", limits=c(0,1)) +
+         scale_fill_gradientn(colours=c("light blue","blue",
+                                          "light green","green",
+                                          "pink","red","orange",
+                                          "purple","gold"), limits=c(0,0.5)) +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines"))
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         sp + labs(title = "DoLP", x = "VZA", y = "AZ") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+```
+
+###3a. PCA on Degree of linear polarization (DoLP)
+
+_PCA summary_
+```{r,echo=FALSE}
+
+## extract only total reflectance variables from datframe set
+
+refivarnames <- names(datframe)[grepl("^DoLP_lambda", names(datframe))]
+
+refd.dat     <- datframe[,refivarnames]
+COD          <- as.factor(datframe$cod)
+Reff         <- as.factor(datframe$sizea)
+CTH          <- as.factor(datframe$cldtop)
+SZA          <- as.factor(round(datframe$sza))
+AZi          <- as.factor(datframe$azi)
+
+pararray     <- data.frame(Reff = Reff, CTH = CTH, COD = COD, SZA = SZA, AZi = AZi)
+
+
+## perform PCA with prcomp (on raw data)
+
+refd.pca     <- prcomp(refd.dat)
+
+## print PCA results
+
+print("summary of PCA for DoLP:")
+
+pcarefd.summary<-summary(refd.pca)
+
+pcarefd.names  <-names(pcarefd.summary)
+
+pcnumlogic     <- pcarefd.summary$importance[3,]<=0.99
+
+print("number of PC's that represent 0.99 variance:")
+
+pcarefd.summary$importance[,pcnumlogic==TRUE]
+
+#print("pca variance plot")
+#window()
+plot(refd.pca,type = "lines",
+     main = "PC variance of DoLP")
+
+print("most important PC's sdev:")
+
+refd.pca$sdev[pcnumlogic==TRUE]
+
+sampVZA   <- 140
+sampVZAvec<- as.numeric()
+for (i in 1:dim2){sampVZAvec[i]<-sampVZA + dim3*(i-1)}
+
+print(paste("sample data rotation on PC space with VZA = ",
+            as.character(sampVZA),sep=""))
+
+refd.pca$rotation[sampVZAvec,pcnumlogic==TRUE]
+
+## predict test
+
+newset       <- rbind(head(refd.dat,2),tail(refd.dat,2))
+predset_DoLP <- predict(refd.pca,newset)
+
+## perform princomp (with cov operation on data)
+## need # cases > # of variables to perform
+## refi.pca2 <- princomp(refi.dat, covmat = MASS::cov.rob(refi.dat))
+
+
+```
+
+_PCA plots_
+
+```{r,echo=FALSE}
+
+## try to visuallize PC's
+
+refd.pca.df <- data.frame(refd.pca$rotation[,pcnumlogic==TRUE])
+refd.pca.df <- cbind(refd.pca.df,vars=rownames(refd.pca.df))
+pcnames     <-names(refd.pca.df)[grepl("^PC", names(refd.pca.df))]
+sub_refd_df <-melt(refd.pca.df,id.vars=c("vars"),
+                       measure.vars=pcnames,
+                       variable_name="PC")
+
+refd.pca.DT <- data.table(sub_refd_df)
+
+## assign factor lambda_i to PC data table
+
+refd.pca.DT[, lambda := ifelse(vars %in% names(datframe)[c(grepl(phrasein[1], 
+                                       names(datframe)))], phraseout[1],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[2], 
+                                       names(datframe)))], phraseout[2],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[3], 
+                                       names(datframe)))], phraseout[3], 
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[4], 
+                                       names(datframe)))], phraseout[4],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[5], 
+                                       names(datframe)))], phraseout[5],
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[6], 
+                                       names(datframe)))], phraseout[6], 
+                ifelse(vars %in% names(datframe)[c(grepl(phrasein[7], 
+                                       names(datframe)))], phraseout[7], NA)))))))]
+
+## create PC curtain plots of lambda by VZA to inspect PC structure
+
+sp<-ggplot(refd.pca.DT, aes(x=vars,y=PC, z= value)) + 
+         geom_tile(aes(fill= value)) +
+         scale_fill_gradientn(colours=c("blue","green",
+                                        "pink","red","orange","gold")) +
+         facet_grid(. ~ lambda, scales = "free", space = "free") +
+         theme(axis.text.x = element_blank(),
+         axis.text.y = element_blank(),
+         axis.ticks = element_blank(),
+         panel.margin = unit(0.2, "lines")) +
+         # scale_x_discrete(expand = c(0, 0)) +
+         # scale_y_discrete(expand = c(0, 0)) +
+         labs(title = "DoLP PC loading map", x = "VZA", y = "") +
+         theme(axis.text.y = element_text(color = "black", size = 15, face = "italic"))
+
+# ggplot(df, aes(time,value)) + geom_line(aes(colour = series))
+# or plot on different plots
+# ggplot(df, aes(time,value)) + geom_line() + facet_grid(series ~ .)
+
+
+## plot PC space with data
+## windows()
+## biplot(refi.pca)
+```
+
+_DoLP by PC space_
+
+```{r,echo=FALSE}
+## create multiple biplots to explore the PC space
+
+#  empty list for storage
+gg_list <- list()
+
+# select vars to plot for
+
+varselect <- names(pararray)
+
+# loop over varselect
+
+  for(i in 1:length(varselect)) {
+      
+      # select specific variables to plot
+      
+      name   <- varselect[i]
+      dattmp <- cbind(refd.dat,pararray[,i])
+      names(dattmp)[dim(dattmp)[2]] <- varselect[i]
+      
+      # assign  ggplot to the i'th position in the list
+      
+      gg_list[[i]] <- autoplot(prcomp(refd.dat), data = dattmp, colour = name, label = TRUE)
+      
+      # print plot
+      # print(gg_list[[i]])
+      
+  }
+  
+  ## print multiple variable
+  #  multiplot(plotlist=gg_list,cols=3)
+     multiplot(gg_list[[1]],gg_list[[3]],
+               gg_list[[4]],gg_list[[5]],
+               cols=2)
+
+
+
+
+
+
+
+```
+
+
+
+

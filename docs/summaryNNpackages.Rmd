@@ -1,0 +1,94 @@
+---
+title: "summaryNNpackages"
+author: "Michal Segal Rozenhaimer"
+date: "Wednesday, July 01, 2015"
+output: html_document
+---
+
+## General Overview of common NN jargon
+
+### Batch vs. Incremental Learning (also Instantaneous, Pattern, and Epoch)
+
+Batch learning proceeds as follows (this is always off-line):
+
+   Initialize the weights.
+   Repeat the following steps:
+      Process all the training data.
+      Update the weights.
+
+Incremental learning (can be on-line or off-line) proceeds as follows:
+
+   Initialize the weights.
+   Repeat the following steps:
+      Process one training case.
+      Update the weights.
+      
+### off-line versus on-line training
+
+With **off-line** learning, you can compute the objective function for any fixed set of weights, so you can see whether you are making progess in training. You can compute a minimum of the objective function to any desired precision. You can use a variety of algorithms for avoiding bad local minima, such as multiple random initializations or global optimization algorithms. You can compute the error function on a validation set and use early stopping or choose from different networks to improve generalization. You can use cross-validation and bootstrapping to estimate generalization error. You can compute prediction and confidence intervals (error bars). 
+
+With **on-line** learning you can do none of these things because you cannot compute the objective function on the training set or the error function on the validation set for a fixed set of weights, since these data sets are not stored during the learning procedure.
+
+### Deterministic versus Stochastic Learning
+
+**Deterministic** learning is based on optimization of an objective function that can be recomputed many times and always produces the same value given the same weights. Deterministic learning is always **off-line**.
+
+**Stochastic** methods are used when computation of the objective function is corrupted by noise. In particular, basic stochastic approximation is a form of on-line gradient descent learning in which the training cases are obtained by a stationary random process:
+
+   Initialize the weights.
+   Initialize the learning rate.
+   Repeat the following steps:
+      Randomly select one (or possibly more) case(s)
+         from the population.
+      Update the weights by subtracting the gradient
+         times the learning rate.
+      Reduce the learning rate according to an
+         appropriate schedule.
+
+In **stochastic on-line** learning, the noise-corrupted objective function is the error function for any given case, assuming that the case-wise error function has some stationary random distribution. The learning rate must gradually decrease towards zero during training to guarantee convergence of the weights to a local minimum of the noiseless objective function. This gradual reduction of the learning rate is often called **"annealing."**
+
+### Backpropagation
+
+"Backprop" is short for "backpropagation of error". The term backpropagation causes much confusion. Strictly speaking, backpropagation refers to the method for computing the gradient of the case-wise error function with respect to the weights for a feedforward network, a straightforward but elegant application of the chain rule of elementary calculus (Werbos 1974/1994). By extension, backpropagation or backprop refers to a training method that uses backpropagation to compute the gradient. By further extension, a backprop network is a feedforward network trained by backpropagation. 
+Standard backprop can be used for both batch training (in which the weights are updated after processing the entire training set) and incremental training (in which the weights are updated after processing each case). For batch training, standard backprop usually converges (eventually) to a local minimum, if one exists. For incremental training, standard backprop does not converge to a stationary point of the error surface. To obtain convergence, the learning rate must be slowly reduced. This methodology is called "stochastic approximation" or "annealing". 
+
+For networks with many hidden units, it is advisable to try to alleviate ill-conditioning by standardizing input and target variables, choosing initial values from a reasonable range, and using weight decay or Bayesian regularization methods. For more discussion of ill-conditioning in neural nets, see ftp://ftp.sas.com/pub/neural/illcond/illcond.html
+
+
+### DeNoia et al., [2015]
+
+DeNoia et al. [2015] used an on-line backprop algorithm, to make sure to get
+reasonable training time for their large network. Other methods for backprop learning,
+which include Levenberg-MArquate (LM) or conjugated gradient that are faster and more stable
+were not implemented due to the large size of the network and the need of these methods to process
+batch backpropagation (processing the entire dataset in each step).
+Learning rate was processed by the means of annealing (i.e. stochastic; gradual reduction in learning rate).
+In their training process, they also introduced regularization in the form of a Gaussian function, which prevent the NN to yield unreasonable responses when simulated by noisy input, and is important for real world data.
+
+### Using RSNNS package:
+
+**Standard backpropagation:** This algorithm is also called online backpropagation (also Vanilla) because it updates the weights after every training pattern. 
+
+** Enhanced backpropagation:**  An enhanced version of backpropagation uses a momentum term and flat spot elimination. It is listed among the SNNS learning functions as BackpropMomentum.
+The momentum term introduces the old weight change as a parameter for the computation of the new weight change. This avoids oscillation problems common with the regular backpropagation algorithm when the error surface has a very narrow minimum area.The effect of these enhancements is that flat spots of the error surface are traversed relatively rapidly with a few big steps, while the step size is decreased as the surface gets rougher. This adaption of the step size increases learning speed significantly. 
+
+**Batch backpropagation:** Batch backpropagation has a similar formula as vanilla backpropagation. The difference lies in the time when the update of the links takes place. While in vanilla backpropagation an update step is performed after each single pattern, in batch backpropagation all weight changes are summed over a full presentation of all training patterns (one epoch). Only then, an update with the accumulated weight changes is performed. This update behavior is especially well suited for training pattern parallel implementations where communication costs are critical. 
+
+**Backpropagation with Weight Decay:** It decreases the weights of the links while training them with backpropagation. In addition to each update of a weight by backpropagation, the weight is decreased by a part d of its old value. The effect is similar to the pruning algorithms. Weights are driven to zero unless reinforced by backpropagation.
+
+** using simulated anealing as optimization scheme**: Simulated annealing is a more sophisticated method for finding the global minima of a error surface. In contrast to monte carlo learning only one weight or bias is changed at a learning cycle. Dependant on the error development and a system temperature this change is accepted or rejected. One of the advantages of simulated annealing is that learning does not get stuck in local minima. 
+The three implemented simulated annealing functions only differ in the way the net error is calculated. Sim_Ann_SS calculates a summed squared error like the backpropagation learning functions; Sim_Ann_WTA calculates a winner takes all error; and Sim_Ann_WWTA calculates a winner takes all error and adds a term corresponding to the security of the winner takes all decision. 
+
+
+
+```{r}
+summary(cars)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

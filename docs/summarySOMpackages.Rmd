@@ -1,0 +1,307 @@
+---
+title: "TestingNNpackages"
+author: "Michal Segal Rozenhaimer"
+date: "Monday, June 29, 2015"
+output: html_document
+---
+
+## Testing Kohonen package for unsupervised SOM
+
+### SOM function
+
+```{r}
+
+## to find files under a certain package use:
+## dir(system.file(package = "kohonen"), recursive = TRUE)
+## to find where a library dataset exist use:
+## system.file("rda", "wines.rda", package = "kohonen")
+
+## Example for SOM of wines data
+
+library(kohonen)
+## data(wines)
+## wines<-load("C:/Users/msegalro.NDC/Documents/R/win-library/3.1/kohonen/data/wines.rda")
+data(wines)
+set.seed(7) 
+
+## parse data - training
+training <-sample(nrow(wines), 120) 
+Xtraining<-scale(wines[training, ]) 
+
+## parse data - test
+Xtest <-scale(wines[-training, ], 
+              center = attr(Xtraining, "scaled:center"), 
+              scale  = attr(Xtraining, "scaled:scale")) 
+
+## perform SOM
+som.wines <-som(Xtraining, grid = somgrid(5, 5, "hexagonal")) 
+
+## predict 
+som.prediction <-predict(som.wines, 
+newdata = Xtest, trainX = Xtraining, 
+trainY = factor(wine.classes[training])) 
+
+## show result table
+table(wine.classes[-training], 
+som.prediction$prediction) 
+
+```
+
+##  Now let's see some plotting options
+
+###"changes" 
+
+shows the mean distance to the closest codebook vector (neuron) during training. 
+
+```{r, echo=FALSE}
+plot(som.wines, type="changes")
+```
+
+###"codes" 
+
+shows the codebook vector (reference vectors/neurons). 
+
+```{r, echo=FALSE}
+plot(som.wines, type="codes", main = c("Codes X", "Codes Y"))
+```
+
+###"counts" 
+
+shows the number of objects mapped to the individual units. 
+Empty units are depicted in gray.
+
+```{r, echo=FALSE}
+plot(som.wines, type="counts")
+```
+
+test counts with a different color scheme
+
+```{r, echo=FALSE}
+
+## palette suggested by Leo Lopes 
+coolBlueHotRed <-function(n, alpha = 1) 
+  
+{ 
+
+rainbow(n, end=4/6, alpha=alpha)[n:1] 
+
+} 
+
+plot(som.wines, type="counts",palette.name = coolBlueHotRed)
+
+```
+
+###"quality" 
+
+shows the mean distance of objects mapped to a unit to the codebook vector of that unit. 
+The smaller the distances, the better the objects are represented by the codebook vectors. 
+
+```{r, echo=FALSE}
+
+plot(som.wines, type="quality", palette.name = coolBlueHotRed) 
+
+```
+
+###"mapping" 
+
+shows where objects are mapped. It needs the "classif" argument, and a "labels" or 
+"pchs" argument.
+
+```{r, echo=TRUE}
+
+## generate supervised kohonen map on wines data
+
+kohmap <-xyf(scale(wines), 
+classvec2classmat(wine.classes), 
+grid = somgrid(5, 5, "hexagonal"), rlen=100) 
+
+## classvec2classmat converts a vector of classes (e.g. [11222333111])
+## to a matrix representation of the classes (e.g. [1 0 0; 1 0 0; 0 1 0;...])
+
+plot(kohmap, 
+type="mapping", 
+labels = wine.classes, 
+col = wine.classes+1, 
+main = "mapping plot on xyf") 
+
+```
+
+another mapping plot with color scheme according to their predicted class labels:
+now add background color to each class
+
+```{r, echo=TRUE}
+
+## add background colors to units according to their predicted class labels 
+
+xyfpredictions <-classmat2classvec(predict(kohmap)$unit.predictions) 
+bgcols <-c("gray", "pink", "lightgreen") 
+
+plot(kohmap, 
+type="mapping", 
+col = wine.classes+1, 
+pchs = wine.classes, 
+bgcol = bgcols[as.integer(xyfpredictions)], 
+main = "another mapping plot with background colors") 
+
+```
+
+
+
+### "property (component plane type plot)"
+Using this method allows to understand how the different variables that comprise the input vectors are organized in the SOM output space.
+
+plot based on 5x5 grid
+
+
+```{r, echo=FALSE}
+
+## Show 'component planes' 
+
+plot(som.wines, 
+type = "property", 
+property = som.wines$codes[,1], 
+main = paste(colnames(som.wines$codes)[1]," 5x5 grid"))
+
+plot(som.wines, 
+type = "property", 
+property = som.wines$codes[,2], 
+main = paste(colnames(som.wines$codes)[2]," 5x5 grid"))
+
+## multiplot(p1,p2,cols=1)
+
+```
+
+### U-matrix plot (Another way to show clustering information, i.e. dist.neighbours)
+this shows sum of distances to all immidiate neighbours. units near a class boundary
+can be expected to have higher average distances to their neighbours
+
+```{r, echo=FALSE}
+
+plot(som.wines, 
+type="dist.neighbours", 
+main = "SOM neighbour distances")
+
+```
+
+### use hierarchical clustering to cluster the codebook vectors (neurons)
+solid black lines represent cluster boundaries
+
+```{r, echo=FALSE}
+
+require(graphics)
+wineshc <-cutree(hclust(dist(som.wines$codes)), 5) 
+plot(som.wines, 
+type="dist.neighbours", 
+main = "SOM neighbour distances with cluster boundaries")
+add.cluster.boundaries(som.wines, wineshc)
+
+```
+
+### example for the nir dataset
+nir : Near-infrared data with temperature effects 
+Description: A data object containing near-infrared spectra of ternary mixtures of ethanol, water and iso-propanol, measured at five different temperatures (30, 40, ..., 70 degrees Centigrade). 
+References : F. Wulfert , W.Th. Kok, A.K. Smilde: Anal. Chem. 1998, 1761-1767 
+
+```{r, echo=TRUE}
+
+data(nir) 
+set.seed(3) 
+
+## nir data contains 95 samples
+## 200 spectral bands for each sample
+
+nirnet <-xyf(data = nir$spectra[nir$training,], 
+Y = nir$composition[nir$training,], 
+xweight=.75, 
+grid = somgrid(6, 6, "hexagonal"), rlen=500) 
+
+
+plot(nirnet, "counts", main="Counts") 
+
+## this is the prediction of all components
+## this gives the major component (levels); not conc
+## allcomp.xyf <-predict(nirnet)$prediction 
+
+```
+
+### predict water content
+water content is color-coded; temperature is circle size
+
+```{r, echo=TRUE}
+
+## Focus on compound 2 (water): 
+
+##dev.new(width = 14) 
+##par(mfrow = c(1,2)) 
+##data(nir)
+set.seed(13) 
+
+nirnet2 <-xyf(data = nir$spectra[nir$training,], 
+Y = nir$composition[nir$training, 2], 
+grid = somgrid(6, 6, "hexagonal"), rlen=500) 
+
+## this is the prediction of water content
+water.xyf <-predict(nirnet2)$prediction 
+
+plot(nirnet2, "property", property = water.xyf, 
+main="Prediction of water content") 
+
+## Plot temperatures as circles 
+symbols(nirnet2$grid$pts[nirnet2$unit.classif,] + matrix(rnorm(sum(nir$training)*2, sd=.1), ncol=2), 
+circles = (nir$temperature[nir$training] -20)/250, inches = FALSE, add = TRUE) 
+
+## length(nirnet$unit.classif) = length of predicted samples
+## each value in this vector gives the neuron number for the predicted sample
+## e.g. first number in vector is 2,i.e. the first predicted spectrum belongs to neuron 2
+## need to check what is unit.classif
+
+
+```
+
+### Model temperatures
+open black circles are scaled according to water content
+
+```{r, echo=FALSE}
+
+set.seed(13) 
+
+## Xweight=0.25
+nirnet3 <-xyf(data = nir$spectra[nir$training,], 
+Y = nir$temperature[nir$training], 
+xweight=.25, 
+grid = somgrid(6, 6, "hexagonal"), rlen=500) 
+
+temp025.xyf <-predict(nirnet3)$prediction 
+
+## show code vectors (codebook) for Xweight025
+kohmap <-xyf(scale(wines), classvec2classmat(wine.classes), 
+grid = somgrid(5, 5, "hexagonal"), rlen=500) 
+
+plot(nirnet3, "property", property = temp025.xyf, 
+palette.name = rainbow, main="Prediction of temperatures Xweight=0.25") 
+
+## Plot concentrations of water as circles 
+symbols(nirnet3$grid$pts[nirnet3$unit.classif,] 
++ matrix(rnorm(sum(nir$training)*2, sd=.1), ncol=2), 
+circles = 0.05 + 0.4 * nir$composition[nir$training,2], 
+inches = FALSE, add = TRUE) 
+
+## Xweight=0.75
+nirnet4 <-xyf(data = nir$spectra[nir$training,], 
+Y = nir$temperature[nir$training], 
+xweight=.75, 
+grid = somgrid(6, 6, "hexagonal"), rlen=500) 
+
+temp075.xyf <-predict(nirnet4)$prediction 
+
+plot(nirnet4, "property", property = temp075.xyf, 
+palette.name = rainbow, main="Prediction of temperatures Xweight=0.75") 
+
+## Plot concentrations of water as circles 
+symbols(nirnet4$grid$pts[nirnet4$unit.classif,] 
++ matrix(rnorm(sum(nir$training)*2, sd=.1), ncol=2), 
+circles = 0.05 + 0.4 * nir$composition[nir$training,2], 
+inches = FALSE, add = TRUE) 
+
+```
+
